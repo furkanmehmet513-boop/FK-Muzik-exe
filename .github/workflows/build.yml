@@ -9,10 +9,12 @@ jobs:
         with:
           node-version: '18'
       - run: npm install -g nativefier
-      - run: mkdir fk-muzik-build
-      - run: cp index.html style.css app.js fk-muzik-build/
-      - run: nativefier --name "FK Muzik" fk-muzik-build/
-      - uses: actions/upload-artifact@v3
+      - run: md FK-Muzik-exe-build
+      - run: copy index.html FK-Muzik-exe-build\
+      - run: copy style.css FK-Muzik-exe-build\
+      - run: copy app.js FK-Muzik-exe-build\
+      - run: nativefier --name "FKMuzik" FK-Muzik-exe-build\
+      - uses: actions/upload-artifact@v4
         with:
           name: FK_Muzik_Windows
-          path: FK\ Muzik-win32-x64/
+          path: FKMuzik-win32-x64\
