@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>FK Müzik</title>
+    <!-- Fontlar ve İkonlar -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- JSZip Kütüphanesi (ZIP geri yükleme için) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body data-theme="dark">
+    <!-- Bildirim Konteyneri -->
+    <div id="toast-container"></div>
+
+    <!-- Gizli Dosya Yükleme İnputları -->
+    <input type="file" id="file-upload" accept="audio/*" multiple style="display:none;">
+    <input type="file" id="folder-upload" webkitdirectory directory multiple style="display:none;">
+    <input type="file" id="cover-upload" accept="image/png, image/jpeg" style="display:none;">
+    <input type="file" id="playlist-cover-input" accept="image/*" style="display:none;">
+    <input type="file" id="zip-restore-input" accept=".zip" style="display:none;">
+
+    <!-- Yan Menü Arka Plan Karartması -->
+    <div id="overlay" class="overlay"></div>
+
+    <!-- Yan Menü (Sidebar) -->
+    <nav id="sidebar" class="sidebar">
+        <div class="sidebar-header">
+            <h2>FK Müzik</h2>
+            <button id="close-sidebar" class="icon-btn" title="Menüyü Kapat"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div class="sidebar-menu">
+            <button class="menu-item active" data-view="all"><i class="fa-solid fa-music"></i> Tüm Şarkılar</button>
+            <button class="menu-item" data-view="favorites"><i class="fa-solid fa-heart"></i> Favoriler</button>
+            <button class="menu-item" data-view="history"><i class="fa-solid fa-clock-rotate-left"></i> Geçmiş</button>
+            <button class="menu-item" data-view="queue"><i class="fa-solid fa-list-ol"></i> Sıram</button>
+            <button class="menu-item" data-view="recent"><i class="fa-solid fa-clock"></i> Son Çalınanlar</button>
+            
+            <div class="menu-divider"></div>
+
+            <!-- Yedekleme Menü Öğesi -->
+            <button class="menu-item" data-view="backup"><i class="fa-solid fa-cloud-arrow-up"></i> Yedekleme</button>
+            
+            <div class="menu-divider"></div>
+            
+            <div class="playlists-header">
+                <h3>Playlistler</h3>
+                <button id="btn-create-playlist" class="icon-btn" title="Yeni Liste Oluştur"><i class="fa-solid fa-plus"></i></button>
+            </div>
+            <div id="playlists-container" class="playlists-list"></div>
+            
+            <div class="menu-divider"></div>
+            
+            <button class="menu-item" id="btn-theme-toggle"><i class="fa-solid fa-moon"></i> Tema Değiştir</button>
+            <button class="menu-item" id="btn-artist-playlist"><i class="fa-solid fa-microphone"></i> Sanatçı Ekle</button>
+            <button class="menu-item" id="btn-stats"><i class="fa-solid fa-chart-simple"></i> İstatistikler</button>
+            
+            <div class="menu-divider"></div>
+            
+            <button class="menu-item text-danger" id="btn-delete-all-songs"><i class="fa-solid fa-trash-can"></i> Tüm Şarkıları Sil</button>
+            <button class="menu-item text-danger" id="btn-delete-all-playlists"><i class="fa-solid fa-list"></i> Tüm Playlistleri Sil</button>
+            <button class="menu-item text-danger" id="btn-clear-all-favorites"><i class="fa-solid fa-heart-broken"></i> Favorileri Sil</button>
+            
+            <div class="menu-divider"></div>
+            
+            <div class="theme-color-section">
+                <h3>Tema Rengi</h3>
+                <div class="color-palette">
+                    <button class="color-option" data-color="#1DB954" style="background-color: #1DB954;" title="Yeşil (Varsayılan)"></button>
+                    <button class="color-option" data-color="#7b2cbf" style="background-color: #7b2cbf;" title="Mor"></button>
+                    <button class="color-option" data-color="#3b82f6" style="background-color: #3b82f6;" title="Mavi"></button>
+                    <button class="color-option" data-color="#ef4444" style="background-color: #ef4444;" title="Kırmızı"></button>
+                </div>
+            </div>
+            
+            <div class="storage-info">
+                <i class="fa-solid fa-database"></i> Depolama: <span id="storage-size">0 MB</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Ana İçerik Konteyneri -->
+    <div id="app-container">
+        <!-- Üst Bar (Draggable PC Header) -->
+        <header class="app-header">
+            <div class="header-left">
+                <button id="btn-menu" class="icon-btn" title="Menü"><i class="fa-solid fa-bars"></i></button>
+                <h1 id="view-title">Tüm Şarkılar</h1>
+            </div>
+            
+            <div class="header-right">
+                <div class="search-box" id="search-box-container">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    <input type="text" id="search-input" placeholder="Şarkı veya sanatçı ara...">
+                </div>
+                
+                <div class="upload-dropdown">
+                    <button id="btn-upload-menu" class="primary-btn"><i class="fa-solid fa-plus"></i> <span>Şarkı Ekle</span></button>
+                    <div id="upload-options" class="dropdown-content">
+                        <button id="btn-add-files"><i class="fa-solid fa-file-audio"></i> Dosya Seç (Çoklu)</button>
+                        <button id="btn-add-folder"><i class="fa-solid fa-folder-open"></i> Klasör Seç</button>
+                    </div>
+                </div>
+
+                <!-- Masaüstü Pencere Kontrolleri -->
+                <div class="window-controls">
+                    <button id="btn-minimize" class="icon-btn" title="Küçült"><i class="fa-solid fa-window-minimize"></i></button>
+                    <button id="btn-maximize" class="icon-btn" title="Tam Ekran"><i class="fa-regular fa-square"></i></button>
+                    <button id="btn-close" class="icon-btn window-close" title="Kapat"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        </header>
+        
+        <!-- Playlist Banner Alanı -->
+        <div id="list-banner" class="list-banner" style="display: none;">
+            <div class="banner-image-container">
+                <img id="banner-img" src="" alt="Playlist Kapak" style="width: 100%; height: 100%; object-fit: contain; display: none;">
+            </div>
+            <div class="banner-overlay" id="banner-overlay">
+                <button id="btn-update-cover" class="update-cover-btn"><i class="fa-solid fa-image"></i> Kapağı Güncelle</button>
+            </div>
+        </div>
+        
+        <!-- Ana İçerik Alanı (Şarkı Listesi / Yedekleme Paneli) -->
+        <main id="main-content">
+            <div class="list-controls-bar" id="list-controls-bar">
+                <div class="sort-dropdown">
+                    <button id="btn-sort" class="icon-btn" title="Sırala"><i class="fa-solid fa-arrow-down-wide-short"></i> Sırala</button>
+                    <div id="sort-options" class="dropdown-content sort-options">
+                        <button data-sort="asc"><i class="fa-solid fa-arrow-down-a-z"></i> A-Z</button>
+                        <button data-sort="desc"><i class="fa-solid fa-arrow-up-a-z"></i> Z-A</button>
+                        <button data-sort="newest"><i class="fa-solid fa-clock"></i> En Yeni Üstte</button>
+                        <button data-sort="manual"><i class="fa-solid fa-hand"></i> Benim Sıralamam</button>
+                    </div>
+                </div>
+                <button id="btn-edit-mode" class="icon-btn" title="Manuel sıralama için düzenleme modunu aç"><i class="fa-solid fa-pen-to-square"></i> Düzenle</button>
+            </div>
+
+            <!-- Masaüstü Tablo Başlıkları -->
+            <div class="list-header" id="list-header">
+                <div>#</div>
+                <div>Kapak</div>
+                <div>Başlık</div>
+                <div>Sanatçı</div>
+                <div>İşlemler</div>
+            </div>
+            
+            <div id="song-list" class="song-list"></div>
+            <!-- Yedekleme Paneli (song-list ile aynı konumda dinamik olarak gösterilecek) -->
+            <div id="backup-panel" class="backup-panel" style="display: none;"></div>
+        </main>
+
+        <!-- Alt Oynatıcı Barı -->
+        <footer class="player-bar">
+            <div class="progress-wrapper">
+                <input type="range" id="progress-range" class="progress-range" min="0" max="100" value="0" step="0.01">
+                <div class="time-row">
+                    <span id="time-current" class="time-display">0:00</span>
+                    <span id="time-total" class="time-display">0:00</span>
+                </div>
+            </div>
+            <div class="player-controls">
+                <div class="now-playing">
+                    <div class="cover-art" id="player-cover" title="Kapak resmini değiştirmek için tıklayın">
+                        <i class="fa-solid fa-music"></i>
+                    </div>
+                    <div class="track-info">
+                        <div class="track-title" id="player-title">Şarkı Seçilmedi</div>
+                        <div class="track-artist" id="player-artist">-</div>
+                    </div>
+                </div>
+                
+                <div class="main-controls">
+                    <button id="btn-shuffle" class="icon-btn control-btn" title="Karışık Çal"><i class="fa-solid fa-shuffle"></i></button>
+                    <button id="btn-prev" class="icon-btn control-btn" title="Önceki Şarkı"><i class="fa-solid fa-backward-step"></i></button>
+                    <button id="btn-play" class="icon-btn play-btn" title="Oynat / Duraklat"><i class="fa-solid fa-play"></i></button>
+                    <button id="btn-next" class="icon-btn control-btn" title="Sonraki Şarkı"><i class="fa-solid fa-forward-step"></i></button>
+                    <button id="btn-repeat" class="icon-btn control-btn" title="Tekrarla"><i class="fa-solid fa-repeat"></i></button>
+                </div>
+                
+                <div class="secondary-controls">
+                    <button id="btn-sleep-timer" class="icon-btn" title="Uyku Zamanlayıcı"><i class="fa-solid fa-bed"></i></button>
+                    <span id="sleep-timer-display" class="sleep-timer-text"></span>
+                    <button id="btn-cancel-sleep-timer" class="icon-btn" style="display: none;" title="Zamanlayıcıyı İptal Et"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Modallar -->
+    <div id="modal-stats" class="modal">
+        <div class="modal-content">
+            <h3>📊 İstatistikler</h3>
+            <div id="stats-content" style="margin: 15px 0; line-height: 1.8; font-size: 16px;"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-stats')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-create-playlist" class="modal">
+        <div class="modal-content">
+            <h3>Yeni Çalma Listesi</h3>
+            <input type="text" id="playlist-name-input" placeholder="Liste adı...">
+            <div class="playlist-cover-section" style="margin: 15px 0;">
+                <label style="display: block; margin-bottom: 8px; font-size: 14px; color: var(--text-sec);">Kapak Resmi (opsiyonel)</label>
+                <div id="playlist-cover-preview" style="width: 100px; height: 100px; background: linear-gradient(135deg, var(--accent), var(--sidebar-bg)); border-radius: 8px; margin-bottom: 10px; background-size: cover; background-position: center;"></div>
+                <button type="button" id="btn-select-playlist-cover" class="btn-cancel" style="padding: 8px 15px;"><i class="fa-solid fa-camera"></i> Cihazdan Seç</button>
+            </div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-create-playlist')">İptal</button>
+                <button class="btn-confirm" id="btn-confirm-create-playlist">Oluştur</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-add-to-playlist" class="modal">
+        <div class="modal-content">
+            <h3>Çalma Listesine Ekle</h3>
+            <div id="modal-playlist-list" class="modal-list"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-add-to-playlist')">İptal</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-confirm-delete" class="modal">
+        <div class="modal-content">
+            <h3>Emin misiniz?</h3>
+            <p id="delete-warning-text" style="font-size: 16px; margin-bottom: 15px;">Bu şarkı silinecek.</p>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-confirm-delete')">İptal</button>
+                <button class="btn-danger" id="btn-confirm-delete">Sil</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-sleep-timer" class="modal">
+        <div class="modal-content">
+            <h3>Uyku Zamanlayıcı</h3>
+            <div class="timer-section">
+                <div class="timer-label" style="font-size: 14px; margin-bottom: 10px; color: var(--text-sec);">Hazır Süreler</div>
+                <div class="timer-options">
+                    <button class="timer-btn" data-time="15">15 Dakika</button>
+                    <button class="timer-btn" data-time="30">30 Dakika</button>
+                    <button class="timer-btn" data-time="45">45 Dakika</button>
+                    <button class="timer-btn" data-time="60">60 Dakika</button>
+                </div>
+            </div>
+            <div class="timer-section">
+                <button id="btn-custom-timer" class="timer-btn custom-timer"><i class="fa-solid fa-pen"></i> Özel Süre Belirle</button>
+            </div>
+            <div class="modal-actions">
+                <button id="btn-cancel-timer" class="btn-cancel">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-artist-list" class="modal">
+        <div class="modal-content">
+            <h3>Sanatçı Seçin</h3>
+            <div id="artist-list-container" class="modal-list"></div>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-artist-list')">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="modal-share" class="modal">
+        <div class="modal-content">
+            <h3>Şarkı Paylaş</h3>
+            <textarea id="share-text" rows="4" placeholder="Paylaşım metninizi düzenleyin..."></textarea>
+            <div class="modal-actions">
+                <button class="btn-cancel" onclick="closeModal('modal-share')">İptal</button>
+                <button class="btn-confirm" id="btn-copy-share"><i class="fa-solid fa-copy"></i> Kopyala</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
